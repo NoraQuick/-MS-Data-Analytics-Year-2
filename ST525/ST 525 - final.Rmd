@@ -1,0 +1,94 @@
+---
+title: "ST 525 - Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+?gbsg
+```
+
+```{r}
+head(gbsg)
+```
+
+```{r}
+# Use Schoenfeld residuals to assess proportional hazard assumption
+fits2 <- coxph(formula = Surv(rfstime, status) ~ age + meno + size + grade + nodes + pgr + er + hormon, data = gbsg)
+summary(fits2)
+
+fit3_res_sch2 <- residuals(fits2, type = "schoenfeld")
+summary(fit3_res_sch2)
+lenfol_dead2 <- gbsg$rfstime[gbsg$status==1] 
+
+par(mfrow=c(2,3))
+plot(lenfol_dead2,fit3_res_sch2[,1])
+smoothSEcurve(fit3_res_sch2[,1], lenfol_dead2)
+abline(h=0,col="blue")
+title("age")
+plot(lenfol_dead2,fit3_res_sch2[,2])
+smoothSEcurve(fit3_res_sch2[,2], lenfol_dead2)
+abline(h=0,col="blue")
+title("meno")
+plot(lenfol_dead2,fit3_res_sch2[,3])
+smoothSEcurve(fit3_res_sch2[,3], lenfol_dead2)
+abline(h=0,col="blue")
+title("size")
+plot(lenfol_dead2,fit3_res_sch2[,4])
+smoothSEcurve(fit3_res_sch2[,4], lenfol_dead2)
+abline(h=0,col="blue")
+title("grade")
+plot(lenfol_dead2,fit3_res_sch2[,5])
+smoothSEcurve(fit3_res_sch2[,5], lenfol_dead2)
+abline(h=0,col="blue")
+title("nodes")
+plot(lenfol_dead2,fit3_res_sch2[,6])
+smoothSEcurve(fit3_res_sch2[,6], lenfol_dead2)
+abline(h=0,col="blue")
+title("pgr")
+plot(lenfol_dead2,fit3_res_sch2[,7])
+smoothSEcurve(fit3_res_sch2[,7], lenfol_dead2)
+abline(h=0,col="blue")
+title("er")
+plot(lenfol_dead2,fit3_res_sch2[,8])
+smoothSEcurve(fit3_res_sch2[,8], lenfol_dead2)
+abline(h=0,col="blue")
+title("hormon")
+```
+
+```{r}
+# Reduced model
+fits3 <- coxph(formula = Surv(rfstime, status) ~ size + grade + nodes + pgr + hormon, data = gbsg)
+summary(fits3)
+```
+
+```{r}
+# Partial Likelihood 
+2 * (fits2$loglik[2] - fits3$loglik[2])
+anova(fits3, fits2, test = "LRT")
+```
+
+```{r}
+# Martingale and Deviance residuals
+gbsg$res_mar <- residuals(fits3, type = 'martingale')
+gbsg$res_dev <- residuals(fits3, type = 'deviance')
+gbsg$linear.predictors <- fits3$linear.predictors
+ggplot(data = gbsg) + geom_point(aes(x = linear.predictors, y = res_mar,
+                                  color = factor(status))) +
+  ylab('Martingale Residual') + labs(color='status') + ggtitle("Martingale Residual Plot")
+ggplot(data = gbsg) + geom_point(aes(x = linear.predictors, y = res_dev,
+                                   color = factor(status))) +
+  ylab('Deviance Residual') + labs(color='status') + ggtitle("Deviance Residual Plot") 
+```
+
+
+```{r}
+# Log-rank test
+logrank <- survdiff(Surv(rfstime, status) ~ hormon, data = gbsg)
+logrank
+```
+
+

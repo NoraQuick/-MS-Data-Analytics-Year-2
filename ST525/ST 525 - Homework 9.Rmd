@@ -1,0 +1,126 @@
+---
+title: "ST525 HW 8"
+output: pdf_document
+author: Nora Quick
+---
+
+
+```{r, include=FALSE}
+library(survival)
+library(survminer)
+library(ggplot2)
+library(dplyr)
+```
+
+# Question 1
+The term proportional hazard means that the event of an event happening is the same for all individuals but depending on covariates such as taking a drug to prevent cancer will change the likelihood of the hazard. In other words someone's hazard at time t depends on many different factors that could increase or decrease the hazard.
+
+We can check whether the proportional hazard assumption is valid by graphing the data. It is easiest to see if the assumptions are met when the hazard rate is linear and the survival probability of two variables is similar but usually one is slightly higher/lower than the other.
+
+
+# Question 2
+## Part (a)
+Model 1:
+$h(t)=h_0(t)exp(\beta_1P27+\beta_2CYCLINE+\beta_3NODES+\beta_4SIZE2+\beta_5SIZE3+\beta_6Age+\beta_7Year)$
+
+Model 2:
+$h(t)=h_0(t)exp(\beta_1P27+\beta_2CYCLINE+\beta_3NODES+\beta_4SIZE2+\beta_5SIZE3+\beta_6Age+\beta_7Year+\beta_8(NODES*P27)+\beta_9(NODES*CYCLINE))$
+
+## Part (b)
+For coefficient NODES*CYCLINE shows that the estimated risk of death is 0.7718 (exp(-0.259)=0.7718) times lower for patients with no cancer spread to their lymph nodes and a normal protein cycline.  
+
+## Part (c)
+I would normally say the wald statistic and while I think it is still relevant based on the output we're given the p-value seems to be the best indication of significance. For NODESxP27 the p-statistic is 0.96 indicating no significance with a DF of 1. For NODESxCYCLINE it has a p-value of 0.58 which is also not statistically significant with a DF of 1.
+
+## Part (d)
+```{r}
+(5+5+(1.357*5)+(0.664*5)+(0.867*5)+(-0.125*5)+(0.198*5)+(-0.027*5)+(-0.259*5))/45
+```
+
+## Part (e)
+I would use the estimates, wald statistic, and p-value to determine which fit is better. Each model has only 1 degree of freedom for each covaraite. 
+
+Model 1 has 5/7 p-values with significant values and model 2 has 5/9 p-values with significance. Both have only 1 DF for each covariate and the wald test reflects the p-values. Therefore, I would conclude that model 1 is the better for for the data. 
+
+## Part (f)
+I would do a ggplot2 survival plot to see the pattern. I think this would be because because we want to see the survival of patients with the different covariates and it could be a great visual way to see what causes faster deteriation. 
+
+I would also likely plot of normal plot from the data to see if there was a pattern.
+
+Additionally, I know we've done plots for KM and after doing some reading for week 10's first discission it would be a good decision to plot that as well. 
+
+
+# Question 3
+```{r}
+rossi <- read.csv('Rossi.csv')
+head(rossi)
+```
+
+## Part (a)
+```{r}
+fit1 <- coxph(formula = Surv(week , arrest) ~ fin + age + race + wexp + mar + paro + prio + educ,
+              data = rossi)
+summary(fit1)
+```
+
+## Part (b)
+```{r}
+rossi$res_mar <- residuals(fit1, type = 'martingale')
+rossi$res_dev <- residuals(fit1, type = 'deviance')
+rossi$linear.predictors <- fit1$linear.predictors
+ggplot(data = rossi) + geom_point(aes(x = linear.predictors, y = res_mar,
+                                   color = factor(arrest))) +
+  ylab('Martingale Residual') + labs(color='arrest')
+ggplot(data = rossi) + geom_point(aes(x = linear.predictors, y = res_dev,
+                                   color = factor(arrest))) +
+  ylab('Deviance Residual') + labs(color='arrest')
+
+smoothSEcurve <- function(yy, xx) {
+# use after a call to "plot"
+# fit a lowess curve and 95% confidence interval curve
+# make list of x values
+xx.list <- min(xx) + ((0:100)/100)*(max(xx) - min(xx))
+# Then fit loess function through the points (xx, yy)
+# at the listed values
+yy.xx <- predict(loess(yy ~ xx), se=T,
+newdata=data.frame(xx=xx.list))
+lines(yy.xx$fit ~ xx.list, lwd=2,col=2)
+lines(yy.xx$fit -
+qt(0.975, yy.xx$df)*yy.xx$se.fit ~ xx.list, lty=2,col=3)
+lines(yy.xx$fit +
+qt(0.975, yy.xx$df)*yy.xx$se.fit ~ xx.list, lty=2,col=3)
+}
+
+fit3 <- coxph(formula = Surv(week, arrest)~fin + age + race + wexp + mar + paro + prio + educ,
+              data = rossi)
+fit3_res_sch <- residuals(fit3, type = "schoenfeld") #Returns Schoenefeld residuals
+lenfol_dead <- rossi$arrest[rossi$arrest==1] #Create event times 
+par(mfrow=c(2,3))
+plot(lenfol_dead,fit3_res_sch[,1])
+smoothSEcurve(fit3_res_sch[,1], lenfol_dead)
+abline(h=0,col="blue")
+title("age")
+```
+
+The Matringale should be more linear based on the lecutres and while the deviance curve is more linear I would say that this is not the best fit.  
+
+## Part (c)
+```{r}
+fit2 <- coxph(formula = Surv(week , arrest) ~ age + race + prio, data = rossi)
+summary(fit2)
+```
+
+## Part (d)
+```{r}
+rossi$res_mar <- residuals(fit2, type = 'martingale')
+rossi$res_dev <- residuals(fit2, type = 'deviance')
+rossi$linear.predictors <- fit2$linear.predictors
+ggplot(data = rossi) + geom_point(aes(x = linear.predictors, y = res_mar,
+                                   color = factor(arrest))) +
+  ylab('Martingale Residual') + labs(color='arrest')
+ggplot(data = rossi) + geom_point(aes(x = linear.predictors, y = res_dev,
+                                   color = factor(arrest))) +
+  ylab('Deviance Residual') + labs(color='arrest')
+```
+
+Based on these graphs as well it doesn't appear to be the best fit. 

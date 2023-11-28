@@ -1,0 +1,116 @@
+---
+title: "ST 525 - Homework 2"
+output: html_notebook
+author: Nora Quick
+---
+
+
+Question 1:
+```{r}
+year <- c('0-1', '1-2', '2-3', '3-4', '4-5', '5-6', '6-7', '7-8', '8-9', '>9')
+alive <- c(1100, 860, 680, 496, 358, 240, 180, 128, 84, 52)
+death <- c(240, 180, 184, 138, 118, 60, 52, 44, 32, 28)
+
+#Original table
+DAT <- data.frame('Year' = year, 'Alive' = alive, 'Dying' = death)
+DAT
+
+#Compute the estimated hazard
+eh <- c(240/(1100-(240/2)),180/(860-(180/2)),184/(680-(184/2)),138/(496-(138/2)),118/(358-(118/2)),60/(240-(60/2)),52/(180-(52/2)),44/(128-(44/2)),32/(84-(32/2)),28/(52-(28/2)))
+
+#Compute the estimated probability density
+epd <- c(240/1100,180/1100,184/1100,138/1100,118/1100,60/1100,52/1100,44/1100,32/1100,28/1100)
+
+#New table
+NEWDAT <- data.frame('Year' = year, 'Alive' = alive, 'Dying' = death, 'Hazard' = eh, 'P-Density' = epd)
+NEWDAT
+
+#Plot
+library(ggplot2)
+
+x <- c(1,2,3,4,5,6,7,8,9,10)
+
+plot_h <- data.frame(x = x, y = eh)
+plot_h
+
+ggplot(data = plot_h, aes(x = x, y = y)) + geom_histogram(stat='identity') + labs(title = 'Estimated Hazard Plot') + xlab('year') + ylab('h(t)')
+
+plot_pd <- data.frame(x = x, y = epd)
+plot_pd
+
+ggplot(data = plot_pd, aes(x = x, y = y)) + geom_histogram(stat='identity') + labs(title = 'Estimated Probability Density Plot') + xlab('year') + ylab('f(t)')
+```
+
+Question 2:
+```{r}
+#Calculate 
+pd <- c(1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20) 
+#pd
+
+sf <- c(19/20,18/20,17/20,16/20,15/20,14/20,13/20,12/20,11/20,10/20,9/20,8/20,7/20,6/20,5/20,4/20,3/20,2/20,1/20,0/20)
+#sf
+
+hf <- cbind(pd[-1]/sf[-1])
+hf[19] <- 1
+hf[20] <- 1
+
+#Plot
+x <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)
+
+#Survival
+plot_s <- data.frame(x = x, y = sf)
+
+ggplot(data = plot_s, aes(x = x, y = y)) + geom_histogram(stat='identity') + labs(title = 'Survival Plot') + xlab('year') + ylab('s(t)')
+
+#Hazard
+plot_h2 <- data.frame(x = x, y = hf)
+
+ggplot(data = plot_h2, aes(x = x, y = y)) + geom_histogram(stat='identity') + labs(title = 'Hazard Plot') + xlab('year') + ylab('h(t)')
+```
+
+
+Question 4:
+```{r}
+ctime <- 0.5
+
+stime <- rexp(1000, rate=1/2) # Generate n=1000 
+#observations from the Exp(scale=2) distribution
+
+otime <- stime # Create a new object that will record the observed times.
+otime[stime > ctime] <- ctime # Observed time is equal to ctime if stime > ctime
+delta <- (stime < ctime) # Delta is one (TRUE) if the observed time is the survival time
+mean(stime) # Average true survival time
+mean(otime) # Average observed (with censoring) survival time
+mean(delta) # Calculate the average number of observations where survival time is observed
+1 - mean(delta) # Average censoring rate
+# Now raepeat the above process for 1000 datasets, each of size n=1000
+nrep <- 1000 # nrep is the number of simulated repetitions we will perform
+stime.means <- rep(0, nrep) # Create space to store the average stime from each dataset
+otime.means <- rep(0, nrep) # Create space to store the average stime from each dataset
+delta.means <- rep(0, nrep) # Create space to store the average stime from each dataset
+
+for(i in 1:1000){
+  stime <- rexp(1000, rate=1/2) 
+  otime <- stime 
+  otime[stime > ctime] <- ctime 
+  delta <- (stime < ctime) 
+  
+  stime.means[i] <- mean(stime) 
+  otime.means[i] <- mean(otime) 
+  delta.means[i] <- mean(delta) 
+}
+
+library(ggplot2)
+plot_means <- data.frame(means=c(stime.means, otime.means), 
+                         type=rep(c('stime', 'otime'), each=nrep))
+
+ggplot(plot_means, aes(x = means, fill = type)) +
+  geom_histogram(position = "identity", alpha = 0.4, bins = 100) +
+  labs(title = 'Means with censoring at 0.5')
+
+mean(delta.means)
+
+```
+
+
+

@@ -1,0 +1,160 @@
+---
+title: "ST525 HW 4"
+output: pdf_document
+author: Nora Quick
+---
+
+# Question 1
+
+a) This estimates the probability of observations we KNOW didn't survive the trigger time. 
+
+b) This estimates the probability that the observation survives the event time.
+
+c) Yes, the exact values of censoring times plays some role in the K-M estimator. 
+
+d) Yes, the exact values of event times plays some role in the K-M estimator because they are "triggers" for the K-M estimator. 
+
+e) With no censoring the K-M estimator and survival function simply are the number of observations that survive after t over the sample size.
+
+```{r}
+obs <- c(1,1,2,3,3,5)
+surv1 <- 4/6 # greater than 1
+surv2 <- 3/6 # greater than 2
+surv3 <- 1/6 # greater than 3
+```
+
+
+
+# Question 2
+
+```{r, echo=FALSE}
+library(survival)
+library(survminer)
+
+# a)
+KM2 <- data.frame(time = c(3.0,6.5,6.5,10,12,15,8.4,4.0,5.7,10),
+                  cstatus = c(1,1,1,1,1,1,0,0,0,0))
+
+censored <- Surv(KM2$time, KM2$cstatus)
+
+#censored[1:10] 
+
+f1 <- survfit(Surv(time, cstatus) ~ 1, data = KM2, conf.type="none") 
+table1 <- summary(f1, times = c(0, unique(KM2$time)))
+
+table1 <- data.frame(time = table1$time, survival = table1$surv, failure = 1-table1$surv, 
+                     Survival.Std.Err = table1$std.err, No.Left = table1$n.risk, 
+                     No.Failed = table1$n.event, No.Censored = table1$n.censor)
+
+print(table1[, 1:7], row.names = FALSE)
+
+plot(f1, mark="|", xlab = 'time', ylab = 'Survival Probability')
+```
+
+b) Based on the above table and looking at the hint provided in the homework that median survival time is 10.0 and the corresponding estimated survival function value is 0.48.
+
+```{r, echo=FALSE}
+# c)
+cHazard <- cumsum(-log(table1$survival))
+cHazard
+```
+
+
+
+# Question 3
+
+```{r, out.width='200px', out.height='400px', echo=FALSE}
+knitr::include_graphics('lifetable.JPG')
+```
+
+b) The estimated survival probability for interval [55-60] is 0.92.
+
+c) My interpritation of this survival probability is that the right before the interval ages of 55-60 there was a 92% probability that the men would not contract CHD.
+
+
+# Question 4
+
+```{r, echo=FALSE}
+# a)
+library(dplyr)
+
+pSmoking <- read.csv('pharmacoSmoking-new.csv')
+
+pSmoking$admitdate <- pSmoking$admitdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+
+pSmoking$fdate <- pSmoking$fdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y"))
+
+pSmoking$time <- difftime(pSmoking$fdate , pSmoking$admitdate, units = 'days') %>% as.numeric()
+
+head(pSmoking)
+```
+
+```{r, echo=FALSE}
+# b)
+
+# female = 0
+female <- pSmoking[pSmoking$gender == 0, ] 
+
+f2 <- survfit(Surv(time, relapse) ~ 1, data = female, conf.type="none") 
+table2 <- summary(f2, times = c(0, unique(female$time)))
+
+table2 <- data.frame(time = table2$time, survival = table2$surv, failure = 1-table2$surv, 
+                     Survival.Std.Err = table2$std.err, No.Left = table2$n.risk, 
+                     No.Failed = table2$n.event, No.Censored = table2$n.censor)
+
+# print(table2[, 1:7], row.names = FALSE)
+
+# male = 1
+male <- pSmoking[pSmoking$gender == 1, ] 
+
+f3 <- survfit(Surv(time, relapse) ~ 1, data = male, conf.type="none") 
+table3 <- summary(f3, times = c(0, unique(male$time)))
+
+table3 <- data.frame(time = table3$time, survival = table3$surv, failure = 1-table3$surv, 
+                     Survival.Std.Err = table3$std.err, No.Left = table3$n.risk, 
+                     No.Failed = table3$n.event, No.Censored = table3$n.censor)
+
+# print(table3[, 1:7], row.names = FALSE)
+
+# plot
+genders <- rbind((cbind(female, type = 'female')),
+                  (cbind(male, type = 'male')))
+
+f4 <- survfit(Surv(time, relapse) ~ type, data = genders)
+
+# plot(f2, mark="|", xlab = 'time', ylab = 'Survival Probability')
+
+# plot(f3, mark="|", xlab = 'time', ylab = 'Survival Probability')
+
+plot(f4, mark="|", xlab = 'time', ylab = 'Survival Probability', col=rainbow(2))
+```
+
+c) Yes, an exponential distribution would work well for the males (blue like above). While the graph also shows negative times once we hit real times we can see that the male line exponentially decreases.
+
+```{r, echo=FALSE}
+# d)
+
+# female
+f5 <- survfit(Surv(time, relapse) ~ 1, data = female, conf.type = 'none')
+ci.log<-survfit(Surv(time, relapse) ~ 1, data = female, conf.type = 'log')
+ci.linear<-survfit(Surv(time, relapse) ~ 1, data = female, conf.type = 'plain')
+par(cex=.7)
+plot(f5,xlab="Time",ylab="Survial probability",lwd=2)
+lines(ci.log, lty=2,col=2)
+lines(ci.linear, lty=4,col=3)
+legend(-250, .2, c("Kaplan-Meier", "log", "linear"), lty=c(1,2,4),col=c(1,2,3))
+
+# male
+f6 <- survfit(Surv(time, relapse) ~ 1, data = male, conf.type = 'none')
+ci.log<-survfit(Surv(time, relapse) ~ 1, data = male, conf.type = 'log')
+ci.linear<-survfit(Surv(time, relapse) ~ 1, data = male, conf.type = 'plain')
+par(cex=.7)
+plot(f6,xlab="Time",ylab="Survial probability",lwd=2)
+lines(ci.log, lty=2,col=2)
+lines(ci.linear, lty=4,col=3)
+legend(-300, .2, c("Kaplan-Meier", "log", "linear"), lty=c(1,2,4),col=c(1,2,3))
+```
+
+e) From the many plots above it appears that the survival experiences of the female, while decreasing more slowly, result in lower survival rates. The males, while having an exponentially decreasing survival rate, the survival rate platoes higher than the females.

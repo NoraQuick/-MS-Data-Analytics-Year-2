@@ -1,0 +1,174 @@
+---
+title: "ST525 HW 7"
+output: pdf_document
+author: Nora Quick
+---
+
+
+```{r, include=FALSE}
+library(survival)
+library(ggplot2)
+library(dplyr)
+```
+
+# Question 1
+
+```{r}
+treatment <- data.frame(days = c(10, 12, 13, 14, 20, 26, 35, 37, 38, 39, 40, 10, 12, 17, 34, 40), status = rep(c(1, 0), c(11, 5)), group = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1))
+placebo <- data.frame(days = c(7, 9, 10, 11, 13, 14, 15, 16, 17, 19, 22, 9, 11, 14, 21, 27), status = rep(c(1, 0), c(11, 5)), group = c(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2))
+
+
+q1data <- rbind(treatment, placebo)
+head(q1data)
+```
+
+## Part (a)
+```{r}
+fit <- survfit(Surv(days, status) ~ group, data = q1data)
+
+plot(fit, main = "Treatment vs. Placebo", xlab = "days", ylab = "survival probability")
+```
+
+## Part (b)
+```{r}
+logrank <- survdiff(Surv(days, status) ~ group, data = q1data)
+logrank
+```
+
+The test statistic is 15.44 and 6.56 respectively with a p-value of 0.02. Based on the log-rank test it appears that, yes, there is strong evidence to conclude that the treatment has an effect on the patient's survival time. Due to the p-value there is moderate evidence to reject the null hypothesis that they have the same survival.
+
+## Part (c)
+```{r}
+fit1 <- survreg(formula = Surv(days, status) ~ group,
+                data = q1data, dist = 'exponential')
+summary(fit1)
+```
+
+## Part (d)
+To begin with the assumptions between the two approaches, I believe that it is okay to assume exponential survival times due to the longer a patient has leukemia the more likely it is to effect their survival. So I think that we could assume it for both. 
+
+There are discrepancies between the two approaches because one compares the treatment and placebo against each other while the other simply looks are the survival of each.
+
+
+# Question 2
+```{r}
+kidney <- read.table('~/kidney.txt', header = TRUE)
+head(kidney)
+```
+
+## Part (a)
+```{r}
+new_kidney <- kidney %>% filter(Type == 2)
+head(new_kidney)
+```
+
+```{r}
+fit1 <- survreg(formula = Surv(Time, Delta) ~ 1,
+                data = new_kidney, dist = 'weibull')
+summary(fit1)
+```
+
+## Part (b)
+The maximum likelihood estimates are 0.616 with a standard error of 0.265. 
+
+## Part (c)
+```{r}
+fit2 <- survreg(formula = Surv(Time, Delta) ~ 1,
+                data = new_kidney, dist = 'exponential')
+summary(fit2)
+
+2 * (fit1$loglik[2] - fit2$loglik[2])
+```
+
+From the likelihood ratio test I found a test statistic of 7.127 and from the Wald test I found a p-value of 0.02. 
+
+## Part (d)
+Based on the above information above (c) I would conclude that with moderate evidence we reject the null hypothesis of scale = 1. 
+
+## Part (e)
+```{r}
+fit3 <- survreg(formula = Surv(Time, Delta) ~ Type,
+                data = kidney, dist = 'weibull')
+summary(fit3)
+```
+
+## Part (f)
+The maximum likelihood estimates are 0.129 with a standard error of 0.167. 
+
+My interpritation is that with both groups in the mix and the numbers seen above we can conclude that this fit will likely provide information that scale = 1.
+
+## Part (g)
+```{r}
+fit4 <- survreg(formula = Surv(Time, Delta) ~ Type,
+                data = kidney, dist = 'exponential')
+summary(fit4)
+
+2 * (fit3$loglik[2] - fit4$loglik[2])
+```
+
+From the likelihood ratio test I found a test statistic of about 0.63 and from the Wald test I found a p-value of 0.44.
+
+## Part (h)
+```{r}
+fitplot <- survfit(Surv(Time, Delta) ~ 1, data = kidney)
+
+plot(fitplot$time,-log(fitplot$surv))
+```
+
+Based on the above graph and the data provided in fit1 and fit3 I would say that, no, the Weibull regression model is not a good fit for this data. As we know from lab we want a linear relationship within the graph above to prove a good fit which we do not see. 
+
+# Question 3
+
+```{r}
+smoke <- read.csv('pharmacoSmoking-old.csv')
+head(smoke)
+```
+
+```{r}
+smoke$admitdate <- smoke$admitdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+
+smoke$fdate <- smoke$fdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y"))
+
+smoke$time <- difftime(smoke$fdate , smoke$admitdate, units = 'days') %>%  as.numeric()
+
+head(smoke)
+```
+
+```{r}
+smoke$time <- smoke[,1] + 0.1
+head(smoke)
+```
+
+## Part (a)
+```{r}
+smoke$employment <- as.factor(smoke$employment)
+
+fit5 <- survreg(formula = Surv(time, relapse) ~ 
+                  age + gender + employment + yearsSmoking + priorAttempts,
+                data = smoke, dist = 'weibull')
+summary(fit5)
+```
+
+## Part (b)
+Age, yearsSmoking, and priorAttempts all have very small positive coefficients. On the other side of it they all have relatively large p-values; 0.43, 0.22, and 0.99 respectivly. 
+
+Gender and employement (2 and 3) also have very small coefficients but unlike the other variables they are negative. However, similar to the other variables they also have relatively large p-values; 0.91, 0.70, and 0.79 respecibly.
+
+## Part (c)
+```{r}
+fitplot2 <- survfit(Surv(time, relapse) ~ 1, data = smoke)
+
+plot(fitplot2$time,-log(fitplot2$surv))
+```
+
+Based on the graph above I would conclude that, no, the Weibull regression model is not appropriate for this data set. Again, as we know from lab we want to see a linear relationship but here we see an explonential model. Therefore, it appears that an exponential model would be better.
+
+## Part (d)
+As we can see in part (b) out model and interpritation makes it look like Weibull is a good model for the data due to the p-values (indicating that we would fail to reject the null hypothesis) but looking at the graph it doesn't appear to be a good model. If we are not using an appropriate model we could conlude an incorrect conclusion such as failing to reject when we should be rejecting the null hypothesis or rejectin when we should be failing to reject the null hypothesis. Additionally, the estimates could be wrong so we may put undo importance on variables.
+
+
+
+
+

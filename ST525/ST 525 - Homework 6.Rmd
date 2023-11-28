@@ -1,0 +1,188 @@
+---
+title: "ST525 HW 6"
+output: pdf_document
+author: Nora Quick
+---
+
+# Question 1
+
+```{r, include=FALSE}
+library(survival)
+library(ggplot2)
+library(dplyr)
+```
+
+## Part (a)
+```{r}
+ratsA <- data.frame(days = c(123, 166, 188, 188, 192, 192, 201, 209, 213, 216, 216, 219, 230, 234, 246, 265, 304, 226, 244, 266), status = rep(c(1, 0), c(17, 3)))
+ratsB <- data.frame(days = c(142, 156, 163, 188, 215, 232, 232, 233, 233, 233, 236, 245, 261, 280, 280, 296, 299, 363, 204, 344), status = rep(c(1, 0), c(18, 2)))
+```
+
+```{r}
+KM.A <- survfit(Surv(days, status) ~ 1, data = ratsA, conf.type="none")
+summ.A <- summary(KM.A, times = c(0,ratsA$days))
+
+plot(KM.A, main = 'Group A', xlab = 'Days',  ylab = 'Survival')
+
+#----
+KM.B <- survfit(Surv(days, status) ~ 1, data = ratsB, conf.type="none")
+summ.B <- summary(KM.B, times = c(0,ratsB$days))
+
+plot(KM.B, main = 'Group B', xlab = 'Days',  ylab = 'Survival')
+```
+
+## Part (b)
+```{r}
+ltime <- log(summ.A$time)[-c(1,21)]
+llsurv <- log(-log(summ.A$surv))[-c(1,21)]
+
+wPlot.A <- data.frame(ltime, llsurv)
+
+ggplot(data = wPlot.A) +
+  geom_line(aes(x = ltime, y = llsurv)) +
+  geom_point(aes(x = ltime, y = llsurv)) +
+  labs(title = 'Group A') +
+  ylab('log[-log(Survival Probability)]') +
+  xlab('log(time)')
+
+#----
+ltime <- log(summ.B$time)[-c(1,21)]
+llsurv <- log(-log(summ.B$surv))[-c(1,21)]
+
+wPlot.B <- data.frame(ltime, llsurv)
+
+ggplot(data = wPlot.B) +
+  geom_line(aes(x = ltime, y = llsurv)) +
+  geom_point(aes(x = ltime, y = llsurv)) +
+  labs(title = 'Group B') +
+  ylab('log[-log(Survival Probability)]') +
+  xlab('log(time)')
+```
+
+I believe based on the graphs above that the Kaplan-Meier estimators is a good fit for the survival fit of group A but less so for group B.
+
+## Part (c)
+```{r}
+fitA <- survreg(formula = Surv(days, status) ~ ., data = ratsA, dist = 'weibull')
+summary(fitA)
+
+#----
+fitB <- survreg(formula = Surv(days, status) ~ ., data = ratsB, dist = 'weibull')
+summary(fitB)
+```
+
+The parameter estimates for the Weibull distributions indicate significance with both having a p-value of <2e-16. 
+
+## Part (d)
+```{r}
+shapeA <- 1/fitA$scale
+scaleA <- exp(fitA$coefficients)
+
+plot(KM.A, main = 'Group A', xlab = 'days', ylab = 'survival')
+points(ratsA$days, pweibull(ratsA$days, shapeA, scaleA, lower.tail=F),type='p') 
+
+#----
+shapeB <- 1/fitB$scale   #shape of Weibull
+scaleB <- exp(fitB$coefficients) #scale of Weibull
+
+plot(KM.B, main = 'Group B', xlab = 'days', ylab = 'survival')
+points(ratsB$days, pweibull(ratsB$days, shapeB, scaleB, lower.tail=F),type='p') 
+```
+
+Assessing again if Weibull distirbution is a good fit for the data I would conclude that, yes, it is a good fit for both group A and group B. 
+
+# Question 2
+
+```{r}
+smoke <- read.csv('pharmacoSmoking-old.csv')
+head(smoke)
+```
+
+```{r}
+smoke$admitdate <- smoke$admitdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+
+smoke$fdate <- smoke$fdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y"))
+
+smoke$time <- difftime(smoke$fdate , smoke$admitdate, units = 'days') %>% as.numeric()
+
+head(smoke)
+```
+
+```{r}
+smoke$time <- smoke[,1] + 0.1
+head(smoke)
+```
+
+## Part (a)
+```{r}
+fitSmoke <- survreg(formula = Surv(time, relapse) ~ 
+                  gender + age + grp,
+                data = smoke, dist = 'weibull')
+summary(fitSmoke)
+```
+ 
+## Part (b)
+The coefficient of age (0.0006) indicates being older is better after ajusting for gender and grp as well. However, this improvement is not statistically significant with a p-value of 0.90.
+
+## Part (c)
+The coefficient of gender (-0.014) indicates being a female is better than being a male, however, with a p-value of 0.90 it is not statistically significant. 
+
+## Part (d)
+The coeggicient of grp (-0.13) indicates that being in combination is better than being in patch-only, however, with a p-value of 0.25 we can, again, conclude that it is not statistically significant.
+
+
+# Question 3
+
+The censoring indicator is indeed switched in this dataset, so you will have to create a new variable that converts it to the expected 1=observed, 0=censored format.
+
+```{r}
+color <- read.csv('color.csv')
+head(color)
+```
+
+```{r}
+color$status <- ifelse(color$status==1, 0, ifelse(color$status==0, 1, color$status))
+head(color)
+```
+
+## Part (a)
+```{r}
+fitColor <- survreg(formula = Surv(time, status) ~ 
+                  group + DVAL + FVAL,
+                data = color, dist = 'weibull')
+summary(fitColor)
+```
+
+## Part (b)
+Yes, the failure times do depend on the group with a p-value of 2e-16 in favor of the green group. It also appears that FVAL also statistically matters (p-value = 0.006) for faulure times but DVAL does not (p-value = 0.198). 
+
+## Part (c)
+Group green has a longer expected survival time. 
+FVAL is also significant and has a 0.99 times (exp(-0.008)) shorter survival time. The larger this value is the shorter the survival time would be and the smaller it get the longer the survival time would be. 
+
+## Part (d)
+```{r}
+fitexColor <- survreg(formula = Surv(time, status) ~ 
+                  group + DVAL + FVAL,
+                data = color, dist = 'exponential')
+summary(fitexColor)
+```
+
+## Part (e)
+No, there is no statistically significant data to indicate failure times depend on group, DVAL, or FVAL with p-values of 0.33, 0.84, and 0.44. 
+
+## Part (f)
+Yes, two of my conclusions differ. In particular, assuming exponenetial instead of Weibell decreases the significance of the covariates. 
+
+## Part (g)
+```{r}
+2*(-316.8-(-362.4))
+```
+
+The outputted p-value is extremely small (2e-16) indicating that there is a difference between the two fits. We can find that the Weibull distribution is the better fit for this data based on the log likelihood values.
+
+
+
+

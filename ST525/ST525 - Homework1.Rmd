@@ -1,0 +1,69 @@
+---
+title: "ST 525 - Homework 1"
+output: html_notebook
+author: Nora Quick
+---
+
+Question 3.
+```{r}
+# My mind processing data
+alive <- c(1100, 860, 680, 496, 358, 240, 180, 128, 84, 52)
+death <- c(240, 180, 184, 138, 118, 60, 52, 44, 32, 28)
+diff <- c(860, 680, 496, 358, 240, 180, 128, 84, 52, 24)
+#Calculating survival rate
+rate <- c(860/1100, 680/1100, 496/1100, 358/1100, 240/1100, 180/1100, 128/1100, 84/1100, 52/1100, 24/1100)
+
+#Create table with year and surivival rate
+DAT <- data.frame('Year' = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), 'Survival' = rate)
+#DAT
+
+# Calculate table of survival rate data
+library(dplyr)
+DAT %>% group_by(Year) %>% summarize(Mean = mean(Survival), N_obs = length(Survival), Min = min(Survival), LowerQuartile = quantile(Survival)[2], Median = median(Survival), UpperQuartile = quantile(Survival)[4], Max = max(Survival), Std_Dev = sd(Survival))
+
+#Plot necessary data
+library(ggplot2)
+ggplot(data = DAT) + aes(x = factor(Year), y = Survival, group=1) + 
+  geom_line() +
+  geom_point() +
+  xlab('Year') + labs(title = 'Estimated Survival')
+```
+
+
+Question 4. 
+```{r}
+#Part (a)
+NOR_DAT <- read.csv("HW1_dataSecondBirth-1.csv", header = TRUE)
+
+NOR_DAT
+
+#Part (b)
+dead <- sum(NOR_DAT$death == 1)
+dead
+
+percent_dead <- dead/53557
+percent_dead
+
+censor <- sum(NOR_DAT$status == 0)
+censor
+
+percent_censor <- censor/53557
+percent_censor
+
+#Part (c)
+NEW_NOR <- NOR_DAT[!(NOR_DAT$status == 0),]
+NEW_NOR
+
+boxplot(NEW_NOR$time ~ NEW_NOR$death,
+        col='steelblue',
+        main='Time to Second Birth by Death',
+        xlab='Death of First Child',
+        ylab='Time to Second Child (days)')
+```
+
+
+
+
+
+
+

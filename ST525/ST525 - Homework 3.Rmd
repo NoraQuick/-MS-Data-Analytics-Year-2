@@ -1,0 +1,86 @@
+---
+title: "ST525 HW 3"
+output: pdf_document
+author: Nora Quick
+---
+
+# Question 1
+
+a) I would say this case is left censored because we do not know when they initially became infected and tested positive. All we know is that at the initial test they were positive.
+
+b) Since we are looking for a positive test this is equal to “being alive at the end of a study” as the person outlasted the tests for a positive I would say this is right censored.
+
+c) This case is interval censored due to the fact that the patient became positive within the interval of the second test and the third test but we do not know exactly when between the two intervals.
+
+
+# Question 2
+a) This is a case of right censoring because the patient “outlasted” the study. They were healthy at the beginning and did not have breast cancer at the end of the study. 
+
+b) This is a case of interval censoring because the patient developed breast cancer sometime between the 12th and 15th year but we do not know exactly when. 
+This is a case of right censoring because the person died of an unrelated cause before the study was over. 
+
+c) I believe this could be classified as a case of right censoring because they moved away so they could not finish the study but they never developed breast cancer while in the study.
+
+
+# Question 3
+```{r, out.width='200px', out.height='100px', echo=FALSE}
+#![Likelihood Function](likelihood.jpg)
+knitr::include_graphics('likelihood.jpg')
+```
+
+
+# Question 4
+```{r}
+# Part a
+pSmoking <- read.csv('pharmacoSmoking-new.csv')
+head(pSmoking)
+```
+
+```{r}
+# Part b
+library(dplyr)
+pSmoking$admitdate <- pSmoking$admitdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+
+pSmoking$fdate <- pSmoking$fdate %>%
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+
+head(pSmoking)
+```
+
+```{r}
+# Part c
+pSmoking$admitdateAlph <- format(pSmoking$admitdate, '%y%b%d')
+
+pSmoking$fdateAlph <- format(pSmoking$fdate, '%y%b%d')
+
+head(pSmoking)
+```
+
+```{r}
+# Part d
+pSmoking$time <- difftime(pSmoking$fdate , pSmoking$admitdate, units = 'days') %>% as.numeric()
+
+head(pSmoking)
+```
+
+```{r}
+# Part e
+head(pSmoking, 10)
+```
+
+```{r}
+# Part f
+# Not using SAS therefore cannot use functions specified in homework
+library(ggplot2)
+
+ggplot(data = pSmoking) + geom_point(aes(x = age, y = time, color = factor(gender))) +
+labs(title = 'Time (in days) vs. Age') +
+xlab('Age (Years)') + ylab('Survival Time (Days)') +
+scale_color_discrete(labels = c('male', 'female'))
+```
+
+
+
+
+
