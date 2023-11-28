@@ -1,0 +1,205 @@
+---
+title: "ST525 Lab Activity 9: Analysis of Residuals for Cox PH Regression"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After today's lab you should be able to:
+\begin{itemize}
+\item Use deviance residuals to detect outliers.
+\item Use martingale residuals to access the functional form of continuous covariates.
+\item Use Schoenfeld residuals to assess proportional hazard assumption.
+\end{itemize}
+
+
+# Read data into R.
+
+```{r}
+df <- read.table('whas500.dat', header = FALSE)
+df <- df[, c(21,22,2,7,4,3)]
+colnames(df) <- c('lenfol','fstat','age','bmi','hr','gender')
+df$gender <- factor(df$gender, levels = c(1,0))
+```
+
+The Worcester Heart Attack Study contains 500 subjects. This study examined several factors, such as age, gender and BMI, that many influence survival time after heart attack. Follow up time for all participants begins at the time of hospital admission after heart attack and ends with death or loss to follow up (censoring). The variables  are:
+
+\begin{itemize}
+\item lenfol: length of follow-up terminated either by death or censoring. The outcome in this study.
+\item fstat: the censoring variable, loss to follow-up=0, death=1.
+\item age: age at hospitalization.
+\item bmi: body mass index.
+\item hr: initial heart rate.
+\item gender: males=0, females=1.
+\end{itemize}
+
+The data in the WHAS500 are subject to right-censoring only. That is, for some subjects we do not know when they died after heart attack, but we do know at least how many days they survived. For more information, please refer to UCLA idre website.
+
+# Martingale and Deviance residuals
+
+We consider fitting a Cox proportional model for the survival time LENFOL using covariates: age, gender, initial heart rate, and body mass index. We will use martingale and deviance residuals to perform model diagnosis for the Cox PH model.
+
+1. Build the Cox model and output martingale and deviance residuals.
+
+```{r}
+library(survival)
+fit1 <- coxph(formula = Surv(lenfol, fstat)~age+gender+hr+bmi,
+              data = df)
+
+```
+The statement specifies the following Cox PH model 
+\begin{center}
+$h(LENFOL)=h_0(LENFOL)exp(\beta_1AGE+\beta_2GENDER+\beta_3HR+\beta_4BMI)$
+\end{center}
+
+2. Visualize both martingale and deviance residuals
+```{r}
+library(ggplot2)
+df$res_mar <- residuals(fit1, type = 'martingale')
+df$res_dev <- residuals(fit1, type = 'deviance')
+df$linear.predictors <- fit1$linear.predictors
+ggplot(data = df) + geom_point(aes(x = linear.predictors, y = res_mar,
+                                   color = factor(fstat))) +
+  ylab('Martingale Residual') + labs(color='fstat')
+ggplot(data = df) + geom_point(aes(x = linear.predictors, y = res_dev,
+                                   color = factor(fstat))) +
+  ylab('Deviance Residual') + labs(color='fstat')
+
+```
+* Function __residuals()__ calculates several different types of residuals of the Cox PH regression. Use argument __type__  to specify the residual type.
+* Compared with martingale residuals, the deviance residuals are more symmetric. All the values of deviance residuals are between -3 and 3. It indicates that there is __no strong concern about outliers__.
+* It was also noticed that there are two groups of residuals corresponding to event and censored individuals respectively.
+* There are clear decreasing trends observed in both martingale and deviance residuals, which indicates lack of fit of the above  Cox PH model.
+
+3. __Use Martingale residuals to assess functional forms of continuous covariates.__
+
+We now use martingale residuals to access appropriate functional forms of the continuous covariates included in the model. First we define a R function to fit a smooth curve (LOESS) for martingale residuals. It fits a loess curve  with 95% confidence intervals.
+
+
+```{r}
+smoothSEcurve <- function(yy, xx) {
+# use after a call to "plot"
+# fit a lowess curve and 95% confidence interval curve
+# make list of x values
+xx.list <- min(xx) + ((0:100)/100)*(max(xx) - min(xx))
+# Then fit loess function through the points (xx, yy)
+# at the listed values
+yy.xx <- predict(loess(yy ~ xx), se=T,
+newdata=data.frame(xx=xx.list))
+lines(yy.xx$fit ~ xx.list, lwd=2,col=2)
+lines(yy.xx$fit -
+qt(0.975, yy.xx$df)*yy.xx$se.fit ~ xx.list, lty=2,col=3)
+lines(yy.xx$fit +
+qt(0.975, yy.xx$df)*yy.xx$se.fit ~ xx.list, lty=2,col=3)
+}
+```
+
+The R function __smoothSEcurve__ needs the following input information
+
+* __yy__: The residuals (used as response).
+* __xx__: The continuous covariate.
+
+
+
+Use Martingale residuals to assess functional forms of continuous covariates. The procedure contains the following steps: 
+
+* We first run a null model without any covariate and output the martingale residuals.
+* Fit a smooth curve for martingale residuals as a function of each of continuous covariate (BMI, age, hr) separately.
+* The fitted smooth curves suggest the appropriate functional form for each covariate. In particular, if the fitted curve is appropriately linear, then linear form is appropriate for that covariate. Otherwise, nonlinear form  needs to be considered. 
+
+```{r}
+##Fit a Cox PH model with covariates and output the martingale residuals
+fit0 <- coxph(formula = Surv(lenfol, fstat)~1,
+              data = df)
+fit0_res_mar<-residuals(fit0,type = 'martingale')
+####Plot the martingale residuals against BMI to check functional form for BMI
+par(mfrow=c(2,2))
+plot(df$bmi,fit0_res_mar)
+smoothSEcurve(fit0_res_mar, df$bmi)
+title(" BMI")
+plot(df$age,fit0_res_mar)
+smoothSEcurve(fit0_res_mar, df$age)
+title(" AGE")
+plot(df$hr,fit0_res_mar)
+smoothSEcurve(fit0_res_mar, df$hr)
+title(" hr")
+```
+
+The three plots suggest quadratic forms for BMI and AGE, maybe cubic form for hr. In the following, we try a Cox PH regression with quadratic forms for BMI and age and cubic form for hr. 
+
+```{r}
+df$bmi2 <- df$bmi^2; df$age2 <- df$age^2; df$hr2 <- df$hr^2; df$hr3<-df$hr^3;
+fit2 <- coxph(formula = Surv(lenfol, fstat)~bmi+bmi2+age+age2+hr+hr2+hr3+gender,
+              data = df)
+summary(fit2) 
+```
+
+In the fitted results, age 2, hr2 and hr3 are all insignificant. Only bim2 is significant at level 0.05. Therefore, we consider a reduced model with only quadratic form for BMI and we will also recheck the residuals.  
+
+```{r}
+fit3 <- coxph(formula = Surv(lenfol, fstat)~bmi+bmi2+
+                age+hr+gender,
+              data = df)
+fit3_res_mar<-residuals(fit3,type = 'martingale')
+par(mfrow=c(2,2))
+plot(df$bmi,fit3_res_mar)
+smoothSEcurve(fit3_res_mar, df$bmi)
+title(" BMI")
+plot(df$age,fit3_res_mar)
+smoothSEcurve(fit3_res_mar, df$age)
+title(" AGE")
+plot(df$hr,fit3_res_mar)
+smoothSEcurve(fit0_res_mar, df$hr)
+title(" hr")
+
+```
+
+The residual plots suggest that the results are much improved, with no obvious pattern left in any of these plots. 
+
+
+
+# Use Schoenfeld residuals to assess proportional hazard assumption
+
+The Schoenfeld residuals can be used to assess the proportional hazards assumption. We consider the following steps:
+
+*  Obtain Schoenfeld residuals from the Cox model with "type = "schoenfeld" in residuals(). Note that the schoenfeld residuals are defined for each covariate, and only at event times. The returned object is a matrix with one row for each event and one column per variable. 
+* Create the event times.
+* Plot the schoefeld residuals against the event times for each covariate.
+* If schoefeld residuals fluctuate randomly around zero with no particular pattern, then the proportional hazard assumption is satisfied. Otherwise, there is evidence of non-proportionality.
+
+
+```{r}
+fit3 <- coxph(formula = Surv(lenfol, fstat)~age+gender+hr+
+                bmi+bmi2, data = df)
+fit3_res_sch <- residuals(fit3, type = "schoenfeld") #Returns Schoenefeld residuals
+lenfol_dead <- df$lenfol[df$fstat==1] #Create event times 
+par(mfrow=c(2,3))
+plot(lenfol_dead,fit3_res_sch[,1])
+smoothSEcurve(fit3_res_sch[,1], lenfol_dead)
+abline(h=0,col="blue")
+title("age")                        
+plot(lenfol_dead,fit3_res_sch[,2])
+smoothSEcurve(fit3_res_sch[,2], lenfol_dead)
+abline(h=0,col="blue")
+title("gender")  
+plot(lenfol_dead,fit3_res_sch[,3])
+smoothSEcurve(fit3_res_sch[,3], lenfol_dead)
+abline(h=0,col="blue")
+title("hr")
+plot(lenfol_dead,fit3_res_sch[,4])
+smoothSEcurve(fit3_res_sch[,4], lenfol_dead)
+abline(h=0,col="blue")
+title("bmi")
+plot(lenfol_dead,fit3_res_sch[,5])
+smoothSEcurve(fit3_res_sch[,5], lenfol_dead)
+abline(h=0,col="blue")
+title("bmi2")
+```
+For the age, gender, bmi and bmi2, flat lines indicate PH assumption is OK. (The zero line is covered in the 95% confidence intervals.) However, for hr, there are some evidence of non-proportionality, which requires further investigation.
+

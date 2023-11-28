@@ -1,0 +1,92 @@
+---
+title: "ST525 Lab Activity 2"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After this lab you should be able to:
+\begin{itemize}
+\item Simulate right censored data from an exponential distribution.
+\item Create histogram for a continuous variable.
+\item Understand the effect of censoring.
+\end{itemize}
+
+# Simulate data from an exponential disribution.
+
+Let's simulate data from an exponential distribution. Let $X$ be a random variable that follows an exponential distribution with mean 2. That is, $X \sim Exp(2)$. We will generate 1000 observations f this exponential distribution.
+```{r}
+set.seed(123) # set random seed
+x = rexp(1000, rate = 1 / 2) # rate value is 1 / mean
+```
+
+It's always a good idea to take a quick look at what you have created. Use the function head() to check the first 6 observations in $x$.
+```{r}
+head(x)
+```
+Here we only view the first 6 observations. You can use head(x, $n$) to check the first $n$ observations.
+
+Calculate the mean and standard deviation of $x$ to check if we create the right random variable. Recall if $X \sim Exp(2)$, then $E(X)=2$ and $sd(X)=2$.
+```{r}
+library(pastecs)
+stat.desc(x)[c('mean', 'min', 'max', 'std.dev')]
+```
+Use stat.desc(x) directly will show you more summary statistics of $x$.
+
+# Create histogram for a continuous random variable.
+Since $x$ is a continuous random variable, it is common to use histogram to visualize the distribution of it. Package "ggplot2" and function "geom_histogram" can help to create a histogram.
+```{r}
+library(ggplot2)
+xexp <- seq(0, max(x), length.out = 100); yexp <- 1/2 * exp(-xexp/2)
+
+plot_x <- data.frame(x = x); plot_xy <- data.frame(xexp = xexp, yexp = yexp)
+ggplot() + geom_histogram(data = plot_x, aes(x = x, y = ..density..), 
+                          breaks = seq(0, 15, length.out = 30)) +
+  geom_line(data = plot_xy, aes(x = xexp, y = yexp), color = 'red') +
+  annotate(geom = 'text', x = 14, y = 0.5, label = 'Mean 2.05996') +
+  annotate(geom = 'text', x = 14, y = 0.45, label = 'Std Dev 2.00881') +
+  labs(title = 'Distribution of x')
+```
+
+In this plot, red line gives the true density function of the exponential distribution. It aligns well with the histogram of $x$. This is another way to confirm that we have generated the right random variable.
+
+# Understand what will happen if we have censored data.
+Let $X$ be the true failure time of an electronic device, and it again follows $Exp(2)$. Let $Y$ be the observed time. Due to budget restrictions, we can only record failure time up to 5. That is if the true failure time exceeds 5, it will be right censored and the observed time is 5 instead. Then we have
+$$
+Y = \begin{cases}
+X, \ \ if \ X < 5 \\
+5, \ \ if \ X \ge 5
+\end{cases}
+$$
+
+
+So $Y$ is a right censored data. Let's create such data in R.
+```{r}
+set.seed(123) # set random seed
+y = rexp(1000, rate = 1 / 2) # rate value is 1 / mean
+y[y>=5] = 5 # if observation value >= 5, they y sets to 5
+```
+This time, the mean and standard deviation are different from 2.
+```{r}
+stat.desc(y)[c('mean', 'min', 'max', 'std.dev')]
+```
+
+```{r}
+xexp <- seq(0, max(y), length.out = 100); yexp <- 1/2 * exp(-xexp/2)
+
+plot_y <- data.frame(y = y); plot_xy <- data.frame(xexp = xexp, yexp = yexp)
+ggplot() + geom_histogram(data = plot_y, aes(x = y, y = ..density..), 
+                          breaks = seq(0, 5, length.out = 30)) +
+  geom_line(data = plot_xy, aes(x = xexp, y = yexp), color = 'red') +
+  annotate(geom = 'text', x = 4, y = 0.5, label = 'Mean 1.88348') +
+  annotate(geom = 'text', x = 4, y = 0.45, label = 'Std Dev 1.52334') +
+  labs(title = 'Distribution of y')
+```
+
+As we can see, the distribution of y is different from the true exponential distribution. Due to the right censoring, there is spike at the right end. In addition, both sample average and standard deviation of censored data y is smaller than the population mean and standard deviation. Therefore, if we ignore censoring in the data, it can lead to biased estimation and inference results.   

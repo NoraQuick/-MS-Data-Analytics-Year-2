@@ -1,0 +1,128 @@
+---
+title: "ST525 Lab Activity 3"
+output: pdf_document
+urlcolor: cyan
+
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After today's lab you should be able to:
+\begin{itemize}
+\item Read survival data into SAS with different format for time variable.
+\item Put survival data into correct structure for survival analysis.
+\item Create enhanced graphs with ggplot2.
+\end{itemize}
+
+# Read data into R
+
+1. Download hmohiv.csv from Canvas and save on your desktop folder (or any folder in your computer).
+2. Open the RStudio. Make sure the file is saved under your R working directory. You can use the function __setwd()__ to change the working directory to where you saved the data file.
+3. Run the following code to read data into RStudio.
+```{r}
+library(dplyr)
+hmo<- read.csv('hmohiv.csv', header = TRUE, 
+               colClasses = c(NA, 'character', 'character',NA, NA, 'factor'))
+head(hmo, 3) # Check the first 3 rows.
+```
+The argument "colClasses" in the __read.csv()__ defines the type of each column variable:
+
+* "character" for two date variables (StartDate, EndDate) 
+* "factor" for the Censoring indicator (Censor)
+* "NA" for using the default type (numerical in this example).
+
+```{r}
+hmo$StartDate <- hmo$StartDate %>% strsplit(split = ' ') %>% 
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+hmo$EndDate <- hmo$EndDate %>% strsplit(split = ' ') %>% 
+  sapply(function(x) x[1]) %>% as.Date(format = c("%m/%d/%y")) 
+
+head(hmo, 3) # Check the first 3 rows.
+```
+
+* The function __strsplit()__ is used to split a string into substrings. Use argument "split" to indicate the character used for splitting. Here a space ' 'is used for splitting.  The returned value of this function is a list.
+* The function __sapply(X, FUN)__ returns a vector of the same length as X, with each element being the result of applying FUN to the corresponding element of X. Here we use a function __function(x) x[1]__ to extract the first item of each list element.
+* __as.Date()__ converts a string to a date type in R. The argument format is used to indicate the format of the string. Here "%m/%d/%y" means the strings (StartDate or EndDate) are in format "m/d/y".
+
+
+
+In this data set, it contains the following variables:
+
+* __Id__: subject's ID number
+* __Startdate__: date of entry into study
+* __Enddate__: date of death or censoring
+* __Age__: age at entry into study in years
+* __Drug__: IV drug user (1 = yes, 0 = no)
+* __Censor__: 1 = died, 0 = censored
+
+4. Calculate the survival time of interest
+```{r}
+hmo$Time_day <- difftime(hmo$EndDate, hmo$StartDate, units = 'days') %>% as.numeric()
+hmo$Time_month <- round(12 * hmo$Time_day / 365.25)
+head(hmo, 3) # Check the first 3 rows
+```
+* The function __difftime()__ can calculate the difference time between two date type values. The argument "units" claims the units in which the results are desired. This function resturns a special class of data called "difftime", so we need to use __as.numeric()__ to convert it into numeric values.
+
+# Plot Survival time against age using ggplot2.
+1. We explore different features in package ggplot2. We will start with the simplest version.
+
+```{r}
+library(ggplot2)
+ggplot(data = hmo) + geom_point(aes(x = Age, y = Time_month)) +
+  labs(title = 'Time (in months) vs. Age: plot1') +
+  scale_x_continuous(limits = c(15,55), expand = c(0, 0))
+
+```
+* The function __scale_x_continuous()__ is used to define the limits of x-axis and use __expand = c(0, 0)__ to indicate we hope no more extra space between the plot margin and the limits of x.
+
+2. Now we can add more features: change the plotting symbol color, shape, and size; and change labels of the x-axis and y-axis.
+
+```{r}
+ggplot(data = hmo) + geom_point(aes(x = Age, y = Time_month), 
+                              shape = 1, col = 'red', size = 2) +
+  scale_x_continuous(limits = c(15, 55), expand = c(0, 0)) +
+  labs(title = 'Time (in months) vs. Age: plot2') +
+  xlab('Age (Years)') + ylab('Time (Months)')
+```
+
+3. We can plot survival time against age for different censoring types. So that we can differentiate between individuals who died from those were censored.
+
+```{r}
+ggplot(data = hmo) + geom_point(aes(x = Age, y = Time_month, 
+                                  color = Censor)) +
+  scale_x_continuous(limits = c(15, 55), expand = c(0, 0)) +
+  labs(title = 'Time (in months) vs. Age: plot3') +
+  xlab('Age (Years)') + ylab('Survival Time (Months)') +
+  scale_color_discrete(labels = c('censored', 'died'))
+```
+
+# Supplement: More DATE types in R.
+
+* For a variable in date type, you can print it in different formats using R function format()
+
+```{r}
+library(knitr)
+library(kableExtra)
+Symbol = c("%d","%a","%A","%m","%b","%B","%y","%Y")
+Meaning = c("day as a number (0-31)","abbreviated weekday","unabbreviated weekday","month (00-12)","abbreviated month","unabbreviated month","2-digit year","4-digit year")
+Example = c("01-31","Mon","Monday","00-12","Jan","January","07","2007")
+text<-cbind(Symbol,Meaning, Example) 
+                
+  kable(text,"latex", booktabs = T)
+```
+
+
+Some examples
+
+```{r}
+Sdate<-hmo$StartDate[1:3]
+format(Sdate, format="%B %d %y")
+format(Sdate, format="%m-%d-%Y")
+```
+
+

@@ -1,0 +1,71 @@
+---
+title: "566 - HW1"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("readxl")
+library("TSA")
+```
+
+
+# Question 1
+### a: Import the data into R and create a time series object in R.
+```{r}
+nhsales <- data.frame(read_excel("NewHomeSales.xls"))
+nhsales_ts <- ts(nhsales[,2],start=c(1963,1),end=c(2017,9), frequency=12)
+  
+nhsales_ts
+```
+
+### b: Print out the sales for first two years (24 observations).
+```{r}
+head(nhsales_ts, n = 24)
+```
+
+### c: Give the time plot of the series.
+```{r}
+plot(nhsales_ts)
+```
+
+### d: Based on the time plot, comment on the main features of this series. For example, is there any trend or seasonality? Does the variance change over time? Is there any outlier in the series? Or is there is any abrupt change in the series? 
+The peaks appear to be during the summer months where people are more likely to be outside and willing to venture to new places while the dips appear to be during the winter months where people are less likely to go out and look at new houses. The large rise in sales are during the years approaching 2008 when the market crashed. So we can see the spike and fall of the stock market crash.
+
+
+
+# Question 2
+### a: Import the data in R and create a time series object in R.
+```{r}
+hare <- data.frame(read_excel("hare.xlsx"))
+hare_ts <- ts(hare[,2],start=1905,end=1935, frequency=1)
+
+hare_ts
+```
+
+### b: Provide R code to reproduce the following graph.
+```{r}
+plot(hare_ts, xlab = "Year", ylab = "Abundance", type='o')
+```
+
+### c: Based on the time plot, comment on the main features of this series.
+There appears to be at the beginning of every decade that gradually decline until the next spike. The trapping of the hares appears to become more and more common/they trap more due to the almost 0 abundace in 1927-1930 with a large spike and then the greatest decrease 1934-1935.
+
+### d: Provide a scatter plot of the hare abundance against previous year’s hare abundance. Provide comments on the observations you make on the scatter plot.
+```{r}
+lag1 <- zlag(hare_ts, d=1)
+plot(lag1, hare_ts, xlab="Last year Hare Abundance", ylab="Hare Abundance")
+
+cor(lag1[2:31],hare_ts[2:31])
+```
+After calculating it appears that there is a .70 correlation. It is hard to see in the plot but there does seem to be a linear relationship within the scatter plot when looking closely. It would make sense that the linear relationship, espeically closer to 0, would produce the cor() output it did. 
+The plot does lose correlation with the larger abundance but that may be because of the large spikes and fall in the later years that we see in the plot in part (b) which were relatively different from the earlier years. 
+
+
+
+
+
+

@@ -1,0 +1,141 @@
+---
+title: "ST525 Lab Activity 5"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After today's lab you should be able to:
+\begin{itemize}
+\item Use Logrank and weighted Logrank test to compare survival functions from two or more groups in R.
+\item Use pair-wise comparisons to understand how groups are different in terms of their survivals.
+\end{itemize}
+
+# Logrank test for comparing two groups
+Read data manually into RStudio
+
+1. Download Lab5.rmd from canvas and open it in RStudio.
+
+2. Run the following code to read data into RStudio.
+
+```{r}
+myel <- data.frame(dur = c(8,180,632,852,52,2240,220,63,195,76,70,8,13,1990,1976,
+                           18,700,1296,1460,210,63,1328,1296,365,23),
+                   status = c(1,1,1,0,1,0,1,1,1,1,1,1,
+                              1,0,0,1,1,0,0,1,1,0,1,0,1),
+                   trt = c(1,2,2,1,1,2,1,1,2,2,2,1,2,2,
+                           1,2,2,1,1,2,1,1,2,1,2),
+                   renal = c(1,0,0,0,1,0,0,1,0,0,0,0,
+                             1,0,0,1,0,0,0,0,1,0,0,0,1))
+```
+
+3. The data set contains 4 variables
+* __dur__: patient's survival or censored time.
+* __status__: the censoring indicator (1 = death, 0 = censor).
+* __trt__: the treatment indicator, there are 2 treatments.
+* __renal__: the indicator of impaired renal function (0 = normal, 1 = impaired).
+
+In this analysis, we are interested in comparing survival between two treatment groups. 
+
+# KM estimators of survival functions for two treatment groups 
+
+```{r}
+library(survival)
+library(survminer)
+censored <- Surv(myel$dur, myel$status)
+fit1 <- survfit(Surv(dur, status) ~ trt, data = myel)
+ggsurvplot(fit = fit1, data = myel, conf.int = FALSE)
+```
+
+* The formula "Surv(dur, status) ~ trt"  requests estimation of the survival function for each treatment group using K-M estimator. 
+
+* ggsurvplot() plots two estimated survival functions.  In Figure 1, the censored data is marked. The red line represents the survival function in treatment 1 and the blue line represents treatment 2. A natural question is whether the survival function of treatment 1 is significantly different from that of treatment 2. In other words, we want to know if the survival profile of patients who receive treatment 1 is differently from patients who are under treatment 2. From Figure 1, it seems that at the beginning, the survival functions of two treatments are similar. From time around 250, treatment 1 group begins to have a higher survival probability than treatment 2 group. Figure 1 only gives a graphical assessment, and we need to conduct statistical test to formally determine if two survival functions are significantly different. 
+
+# Log-rank test for comparing two treatment groups 
+
+The null hypothesis of homogeneity test is 
+\begin{center}
+$H_0$: There is no difference between two survival functions.
+\end{center}
+
+The R function survdiff() can be used to perform Log-rank test. In survdiff(), one can use argument "rho=" to request a weighted log-rank test. However, it only contains G-rho family of Harrington and Fleming (1982), with weights on each death of $S(t)^{rho}$. So it gives Log-rank test with "rho=0" (default), and Peto-Peto test with "rho=1". In the next example, we will introduce another R function that can implement more general forms of weight function. 
+
+```{r}
+logrank<-survdiff(Surv(dur, status) ~ trt, data = myel)
+logrank
+peto<-survdiff(Surv(dur, status) ~ trt, rho=1, data = myel)
+peto
+```
+
+The output gives the test statistics of Log-rank and Peto-Peto tests, and their p-values. Both  tests give large p-value: p=0.3 (logrank), and p=0.6 (Peto). Therefore, there is not enough evidence to reject the null hypothesis. In other words, there is not enough evidence to conclude that survival functions of two treatments are significantly different. This test result seems contradicting what we see from Figure 1. However since KM estimator has larger variability at later times. The differences observed in Figure 1 are mainly due to randomness. In addition, Peto test gives smaller test statistics and larger p-value. It is due to the fact that it gives larger weights to earlier differences and smaller weights to later differences. 
+
+
+
+# Log-rank test for comparing more than two groups
+Now we consider an example to use Log-rank test to compare survival of more than two groups. We use the same data we used in Lab3. We will compare survival of individuals in different age groups.
+
+```{r}
+library(dplyr)
+x <- read.csv('hmohiv.csv', header = TRUE, 
+               colClasses = c(NA, 'character', 'character',NA, NA, NA))
+x$StartDate <- x$StartDate %>% strsplit(split = ' ') %>% 
+  sapply(function(l) l[1]) %>% as.Date(format = c("%m/%d/%y")) 
+x$EndDate <- x$EndDate %>% strsplit(split = ' ') %>% 
+  sapply(function(l) l[1]) %>% as.Date(format = c("%m/%d/%y")) 
+x$Time_day <- difftime(x$EndDate, x$StartDate, units = 'days') %>% as.numeric()
+x$Time_month <- round(12 * x$Time_day / 365.25)
+x$Drug <- as.numeric(x$Drug)
+x$Group <- cut(x$Age, breaks = c(0, 30, 35, 40, 45, Inf), 
+               right = FALSE, include.lowest = TRUE)
+
+```
+Here, we use function *cut()* to assign the time of month falls in which interval. The arguments *right = FALSE, include.lowest = TRUE* indicates the intervals are left closed and right open.
+
+
+In R, another function *comp()* in *survMisc* package can be also used to compare survival functions among different stratum. It implements more choices of weight functions. For more details, please check the help document of comp(). 
+
+
+
+```{r}
+library("survMisc")
+fit2 <- survfit(Surv(Time_month, Censor) ~ Group, data = x)
+comp(ten(fit2))
+ggsurvplot(fit2, data = x, conf.int = TRUE)
+```
+
+In comp(),  use *ten()* to convert *survfit* object into the object that *comp()* function uses. We will only focus on the first part of the output. 
+
+\begin{verbatim}
+
+            chiSq df     pChisq    
+1          22.833  4 0.00013675 ***     (Logrank)
+n          15.443  4 0.00386557 **      (Gehan-Breslow generalized Wilcoxon)  
+sqrtN      18.834  4 0.00084730 ***     (Tarone-Ware)
+S1         17.247  4 0.00173052 **      (Peto-Peto)
+S2         17.069  4 0.00187388 **      (modified Peto-Peto)
+FH_p=1_q=1 19.409  4 0.00065310 ***     (Fleming-Harrington)
+
+\end{verbatim}
+
+
+
+All tests give small p-values (<0.05), suggesting there exists significant differences in five survival curves. The next question to ask is how these groups are different. We can further use pairwise comparisons to find out which pair of groups are significantly different. The function *pairwise_survdiff()* is used here, and because there is no Sidak correction to the raw p-values option in R, I use Bonferroni instead.
+
+```{r}
+pairwise_survdiff(Surv(Time_month, Censor) ~ Group, data = x, p.adjust.method = "bonferroni" )
+```
+It suggests that only the young age group (<30) is significantly different from groups [30,35), [40, 45) and [45,Inf]; and group [30,35) is different from [45, Inf). All the other pairs are not significantly different.  One can also visualize the differences among groups in the following surival function plot.
+
+
+```{r}
+fit2 <- survfit(Surv(Time_month, Censor) ~ Group, data = x)
+ggsurvplot(fit2, data = x, conf.int = TRUE)
+```
+
+

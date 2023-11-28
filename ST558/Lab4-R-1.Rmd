@@ -1,0 +1,178 @@
+---
+title: "ST525 Lab Activity 4"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center",
+                      fig.width = 6, fig.height = 4
+                      )
+```
+
+# Lab objectives
+
+After today's lab you should be able to:
+\begin{itemize}
+\item Implement KM estimator in RStudio.
+\item Understand KM estimator table and plot the estimated survival function.
+\item Check if potential parametric models are appropriate for the observed survival time.
+\item Obtain point-wise confidence intervals (CI) and confidence bands (CB) for KM estimator in RStudio.
+\end{itemize}
+
+# KM estimator
+
+For illustration, we use the data "Remission duration form a clinical trial for acute leukemia". Run the following code to read data into RStudio.
+
+```{r}
+MP6 <- data.frame(pair = 1:21, rstatus = c('p', rep('c', 10), 'p', 'c',
+                                           'c','c', 'p','p',rep('c',4)),
+                  timep = c(1,22,3,12,8,17,2,11,8,12,
+                            2,5,4,15,8,23,5,11,4,1,8), 
+                  time6mp = c(10,7,32,23,22,6,16,34,32,25,11,20,
+                              19,6,17,35,6,13,9,6,10),
+                  cstatus = c(1,1,0,1,1,1,1,0,0,0,0,0,0,1,0,0,1,1,0,0,0))
+```
+
+
+
+In this data set, it contains the following variables:
+
+* __pair__: index number.
+* __rstatus__: Remission status at randomization (p = partial, c = complete).
+* __timep__: Time to relapse for placebo patients, in months.
+* __time6mp__: Time to relapse for 6-MP patients.
+* __cstatus__: Relapse indicator (0 = censored, 1 = relapse) for 6-MP patients. NOTE: all placebo patients relapsed.
+
+In this analysis, we will estimate the survival function for 6-Mp patients using Kaplan-Meier method. Therefore, we will focus on variables time6mp and cstatus in the following.
+
+## KM estimators 
+
+
+```{r}
+library(survival)
+library(survminer)
+censored <- Surv(MP6$time6mp, MP6$cstatus) #Creates a survival object
+censored[1:10] 
+
+f1 <- survfit(Surv(time6mp, cstatus) ~ 1, data = MP6, conf.type="none") 
+table1 <- summary(f1, times = c(0, unique(MP6$time6mp)))
+# times is the vector on which you want to get the estimated survival function values.
+table1 <- data.frame(time = table1$time, survival = table1$surv, failure = 1-table1$surv, 
+                     Survival.Std.Err = table1$std.err, No.Left = table1$n.risk, 
+                     No.Failed = table1$n.event, No.Censored = table1$n.censor)
+# Extract all information we need to build a data frame.
+print(table1[, 1:7], row.names = FALSE)
+
+```
+* __Surv()__: The function is used to generate survival object. The first argument is the time variable and the second one is the censoring indicator. It uses 0 for censored data and 1 for observed data.
+* __survfit__: The function is used to generate Kaplan-Meier estimator for the survival function. 
+ + Surv(): is used to generate survival object. The first argument (time6mp) is the time variable and the second one (cstatus) is the censoring indicator, in which "0" is for censoring and "1"  indicates observed event times.
+  + For a single survival curve, the right hand side should be ~ 1.
+  + __conf.type__: specifies methods to generate point-wise confidence intervals. Choose from "none", "plain" (linear), "log" (the default), or "log-log". 
+
+For the output table:
+
+* __survival__: Estimated probability of surviving up to time t.
+* __failure__: Estimated probability of failure before time t. Note that Failure=1-Survival.
+* __No.Left__: The number of alive observation before that time.
+* __No.Failed__: The number of dead subjects at that time.
+* At time=0, the survival function = 1. There are 21 observations in the data, no failure.
+* Right before time 6, there are 21 (No.Left) survivors. At time 6, there are 3 (No.Failed) failures and 1 (= 21 - 3 - 17) censor. The KM estimate at time 6 is 1 * (1 - 3 / 21) = 0.8571. The probability of surviving BEYOND time 6  is 0.8571, or surviving UP TO time 6 is 1-0.8571=0.1429.
+
+```{r}
+plot(f1, mark="|", xlab = 'time6mp', ylab = 'Survival Probability')
+
+```
+
+This figure shows the estimated survival function via KM estimator. Here mark="|" indicates the censored observations using symbol "|".  This is the non-parametric survival function (model).  The KM estimator is a step function, the drop only occurs at event times. 
+
+##Check appropriateness of  parametric models 
+We can use the KM estimates to assess if it is appropriate to use parametric models such as Exponential distribution for the data.
+
+```{r}
+table2 <- table1[c(table1$No.Failed > 0), ]
+table2 <- data.frame(rbind(table1[1, ], table2, table1[17, ]))
+# I do the data cleaning here. Extract all event happening rows out of table 1 and insert 
+# the first and the last row to build the table2.
+
+ggplot(data = table2) + geom_line(aes(x = time, y = -log(survival))) +
+  geom_point(aes(x = time, y = -log(survival)), size = 2, shape = 1) +
+  labs(title = 'Negative Log of Estimated Survivor Function') +
+  ylab('-log(Survival Probability)') + xlab('time6mp') +
+  scale_x_continuous(limits = c(0, 35))
+```
+This figure shows the -log(survival time) vs. time. This helps to visually check the adequacy of the Exponential model for the data. If the survival time response (time6mp) follows an exponential distribution, then the -log(survival function) is a linear function of survival time.
+
+This plot demonstrates an approximate straight line except for the end portion. However, the survival function estimator usually has larger variability at later times. So we could consider this linear relationship plausible. This indicates that Exponential distribution may fit the survival time well. 
+
+```{r}
+# The first row of table2 is discarded since we don't need the value of log(0).
+ggplot(data = table2[2:9, ]) + geom_line(aes(x = log(time), y = log(-log(survival)))) +
+  geom_point(aes(x = log(time), y = log(-log(survival))), size = 2, shape = 1) +
+  labs(title = 'Log of Negative Log of Estimated Survivor Function') +
+  ylab('log[-log(Survival Probability)]') + xlab('log(time6mp)') +
+  scale_y_continuous(limits = c(-2, 0))
+```
+
+The last figure shows the log(-log(survival function)) vs. log(time). This helps to check the adequacy of the Weibull model for the data. If the survival time response (time6mp) follows an Weibull distribution, then the log(-log(survival function)) is a linear function of the log(survival time). As we can see, the Weibull distribution can also describe the survival time.
+
+
+Conclusions from Figure 2 and Figure 3 are consistent since Exponential distribution is part of the Weibull family. Therefore, we have both plots showing linear relationship. Please note that these plots are only graphical diagnosis tools for data exploration only, and can not be used as "guarantee" for the correctness of particular parametric model.
+
+
+
+# Confidence intervals and confidence bands for survival function
+Now we explore how to obtain confidence intervals and confidence bands in RStudio to make inference for survival functions.
+
+```{r}
+f1 <- survfit(Surv(time6mp, cstatus) ~ 1, data = MP6, conf.type = 'none')
+ci.log<-survfit(Surv(time6mp, cstatus) ~ 1, data = MP6, conf.type = 'log')
+ci.linear<-survfit(Surv(time6mp, cstatus) ~ 1, data = MP6, conf.type = 'plain')
+par(cex=.7)
+plot(f1,xlab="Time",ylab="Survial probability",lwd=2)
+lines(ci.log, lty=2,col=2)
+lines(ci.linear, lty=4,col=3)
+legend(0.5, .2, c("Kaplan-Meier", "log", "linear"), lty=c(1,2,4),col=c(1,2,3))
+```
+
+
+* In the survfit(), __conf.type__ = "plain" for linear method, and "log" for using log-transformation.
+
+```{r}
+##Better looking plots can be obtained using function ggsurvplot()
+fit <- list(linear = ci.linear, log = ci.log)
+ggsurvplot(fit = fit, data = censored, combine = TRUE, 
+conf.int = TRUE, conf.int.style = 'step',
+legend.title = 'Kaplan-Meier plot with point-wise confidence intervals')
+```
+* In the ggsurvplot():
+  + __combine__ = __TRUE__: The option used to combine a list survfit objects on the same plot.
+  + __conf.int__: Logical value. If TRUE, plots confidence interval.
+  + __conf.int.style__: Confidence interval style. Allowed values include c("ribbon", "step")
+
+Here we plotted the confidence intervals using both linear (red) and log-transformed methods (blue) along with estimated survival function (black).
+
+In RStudio, here is another way to get point-wise confidence intervals using km.ci(). One can also use this to obtain the confidence bands using Hall-Wellner method. Confidence bands are wider than point-wise confidence interval because it adjusts for making inference of multiple time points simultaneously.
+
+```{r}
+library(km.ci)
+
+f1 <- survfit(Surv(time6mp, cstatus) ~ 1, data = MP6, conf.type="none")
+ci.log<-km.ci(f1, conf.level=0.95, method="log")
+cb.hw<-km.ci(f1, conf.level=0.95, method="loghall")
+par(cex=.7)
+
+plot(f1,lwd=2,xlab="Time",ylab="Survial probability")
+lines(ci.log, lty=2,col=2)
+lines(cb.hw, lty=4,col=3)
+legend(0.5, .2, c("Kaplan-Meier", "Pointwise", "Hall-Wellner"), lty=c(1,2,4),col=c(1,2,3))
+
+```
+
+km.ci() computes  point-wise and simultaneous confidence intervals for the Kaplan-Meier estimator. It has choices such as '"linear"', '"log"', "loglog" for point-wise confidence intervals, and '"loghall" for Hall-Wellner confidence bands under log-transformation.
+
+
+
+
+

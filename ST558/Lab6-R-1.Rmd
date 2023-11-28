@@ -1,0 +1,115 @@
+---
+title: "ST525 Lab Activity 6"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After today's lab you should be able to:
+\begin{itemize}
+\item Build Exponential regression model for survival data in R.
+\item Build Weibull regression model for survival data in R.
+\item Interpret the regression coefficients in parametric regression models.
+\item Compare Exponential and Weibull distribution models with likelihood ratio test.
+\end{itemize}
+
+# Exponential regression for survival data
+
+This data contains disease-free survival times on 43 bone marrow transplant patients. These patients had either Hodgkin's disease or Non-Hodgkin's Lymphoma, and were given either an allogeneic (Allo) transplant (from a HLA match sibling donor) or autogeneic (Auto) transplant (their own marrow was cleansed and returned to them after a high dose of chemotherapy). Other covariates include Karnofsky score (a subjective measure of how well the patient is doing, ranging from 0-100) and waiting time (in months) from diagnosis to transplant. It is of substantial interest to see the difference in leukemia-free survival (in days) between those patients given an Allo or Auto transplant, after adjusting for patients' disease status, Karnofsky score and waiting time. In this lab, we fit an Exponential and Weibull model to the data. Run the following code to read data into RStudio
+
+```{r}
+bmt <- data.frame(allo = c(rep(1, 16), rep(2, 27)),
+                  hodgkins = c(rep(1,11), rep(2,5), rep(1,12), rep(2,15)),
+                  time = c(28,32,49,84,357,933,1078,1183,1560,2114,2144,
+                           2,4,72,77,79,42,53,57,63,81,140,81,252,524,210,
+                           476,1037,30,36,41,52,62,108,132,180,307,406,
+                           446,484,748,1290,1345),
+                  status = c(1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,
+                             1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0),
+                  kscore = c(90,30,40,60,70,90,100,90,80,80,90,20,50,80,
+                             60,70,80,90,30,60,50,100,50,90,90,90,90,90,
+                             90,80,70,60,90,70,60,100,100,100,100,90,
+                             90,90,80),
+                  wtime = c(24,7,8,10,42,9,16,16,20,27,5,34,28,59,102,71,
+                            19,17,9,13,12,11,12,21,39,16,24,84,73,61,34,
+                            18,40,65,17,61,24,48,52,84,171,20,98))
+```
+
+
+The data set contains 6 variables
+
+* __allo__: Graft type (1=allogenic, 2=autologous);
+* __hodgkins__: Disease type (1=Non-Hodgkin lymphoma, 2=Hodgkins disease);
+* __time__: Time to death or relapse, days;
+* __status__: Death/relapse indicator (0=alive, 1=dead);
+* __kscore__: Karnofsky score;
+* __wtime__: Waiting time to transplant in months.
+
+# Exponential regression model for survival time
+
+In R, __survreg__ is used to fit parametric regression model to survival times.
+
+```{r}
+library(survival)
+censored <- Surv(bmt$time, bmt$status)
+# To be consistent with the SAS output, we create a dummmy variable allod which 
+#takes value 1 for allogenic and  0 for autologous
+
+allod<-1*(bmt$allo==1) 
+fit1 <- survreg(formula = Surv(time, status) ~ 
+                  allod + hodgkins + kscore + wtime,
+                data = bmt, dist = 'exponential')
+summary(fit1)
+
+```
+* __survreg__ is used to fit parametric regression model to survival times.
+* __formula__ statement specifies the following regression model
+\begin{center}
+$log(T)=\beta_0+\beta_1allo+\beta_2hodgkins+\beta_3kscore+\beta_4wtime+\sigma\epsilon,$
+\end{center}
+in which $T$ represents the survival time. 
+
+* __dist__ is used to define the distribution for response variable. In particular, dist = 'exponential' gives exponential regression. Other options include "weibull", "gaussian", "logistic","lognormal" and "loglogistic".
+
+* __summary__ It summarizes the estimation results. 
+
+The table gives parameter estimation results. The estimated coefficient of allo (0.1333) indicates that allogeneic transplant is slightly better (longer survival time) than autologous transplant after adjusting for disease status, Karnofsky score and waiting time. However, this improvement is not statistically significant with p-value = 0.772.
+
+
+There is strong evidence that Non-Hodgkins patients does better than Hodgkins patients (p-value = 0.012 from a Wald test). It is estimated that the mean (or median) survival time for Non-Hodgkins patients is expa(1.3185)=3.74 times of the mean(or median) survival time of the Hodgkins patients.
+
+The patients with higher Karnofsky scores have better survival (with one point higher of Karnofsky score, the patients' average survival time will increase by about 7\% exp(0.0758)=1.078) 
+
+Waiting time has no significant effect on the disease-free survival (p-value = 0.1975).
+
+
+
+Since we specify an Exponential model for the survival time, the Scale parameter is set to 1. The Shape parameter is the reciprocal of Scale parameter, which is also 1. Recall the Exponential distribution is a special case of Weibull distribution.
+
+# Weibull regression for survival time
+
+We can also build a more flexible (with more parameters) Weibull model to fit the same survival data.
+
+```{r}
+fit2 <- survreg(formula = Surv(time, status) ~ 
+                  allod + hodgkins + kscore + wtime,
+                data = bmt, dist = 'weibull')
+summary(fit2)
+```
+
+The table shows the Weibull model results. Compared with Exponential regression model, both regression models give consistent estimation results. For example, compared to autologous transplant, allogeneic transplant has better survival from both models. For the Weibull regression, the Scale parameter is estimated as 1.27.
+
+# Compare Exponential and Weibull distribution with likelihood ratio test
+
+We have fitted the data with two parametric models, namely Exponential model and Weibull model. The question now is which model suits the data better. Since Exponential model is a special case of Weibull model, which serves as the reduced model. Likelihood ratio test can be used to test if the Exponential model is enough to describe the data compared to Weibull model. Notice that the log likelihood of Exponential model is -168.3 and the log likelihood of Weibull model is -167. The likelihood ratio test statistic is
+\begin{center}
+$2\times(LL_{Weibull}-LL_{Exponential})=2\times(-167-(-168.3))=2.6.$
+\end{center}
+This test statistic will be compared to a Chi-square distirbution with 1 degree freedom. Then the $p-value=P(\chi_1^2>2.6)=0.1069$. So there is no evidence to use a more complex Weibull distribution to fit the data over the Exponential model. An Exponential regression model is preferred. 
+

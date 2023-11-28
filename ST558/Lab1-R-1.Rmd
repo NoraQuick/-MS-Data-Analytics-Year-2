@@ -1,0 +1,73 @@
+---
+title: "ST525 Lab Activity 1"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After this lab you should be able to:
+\begin{itemize}
+\item Import .csv data file into RStudio and create a R data set manually.
+\item Make basis statistical summaries of the data.
+\item Visualize data using side-by-side box plot or scatter plot.
+\end{itemize}
+
+# Import .csv data file into RStudio and print the data.
+
+1. Download the data file "lab1_data.csv" and the R Markdown program Lab1.rmd from the course website and save them on your computer. It is recommended to create a folder on your computer for this class that can be used to save materials in the future.
+2. Open the RStudio. Make sure the file is saved under your R working directory. You can use the function setwd() to change the working directory to where you saved the data file.
+3. Input data(lab1_data.csv).
+    + Open lab1_data.csv.
+      + File > Open File.
+      + Select "lab1_data.csv" and click Open.
+    + Run the following code.
+    ```{r}
+    DAT <- read.csv("lab1_data.csv", header = TRUE)
+    names(DAT) <- c('temp', 'hours')
+    ```
+
+# Create R data frame manually.    
+You can also input data manually. This option is recommended only when the data size is small.
+```{r, results = 'asis'}
+DAT <- data.frame('temp' = c(rep(1,8), rep(2,8), rep(3,8), rep(4,7),rep(5,6)), 
+                  'hours' = c(2.04, 1.91, 2.00, 1.92, 1.85, 1.96, 1.88,
+                              1.90, 1.66, 1.71, 1.42, 1.76, 1.66, 1.61,
+                              1.55, 1.66, 1.53, 1.54, 1.38, 1.31, 1.35,
+                              1.27, 1.26, 1.38, 1.15, 1.22, 1.17, 1.16,
+                              1.21, 1.28, 1.17, 1.26, 0.83, 1.08, 1.02,
+                              1.09, 1.06))
+```
+
+# Basis numeric summary of the data.
+You need to install and load "dplyr" package to use the following code. Function "group_by" is used to divide original data into different groups based on variable "temp" and function "summarize" is used to calculate all statistics of each group. In the following table, each row represents a Temp group. There are 5 different groups based on  variable values of Temp. 
+```{r}
+library(dplyr)
+DAT %>% group_by(temp) %>% summarize(Mean = mean(hours), N_obs = length(hours), 
+                                     Min = min(hours), LowerQuartile = quantile(hours)[2], 
+                                     Median = median(hours), 
+                                     UpperQuartile = quantile(hours)[4], 
+                                     Max = max(hours), Std_Dev = sd(hours))
+```
+
+# Visualize data by making plots.
+Here we demonstrate two different ways to visualize our data. Based on the type of your data, you need to decide which plot suits the best. The side-by-side box plot is typically generated for data that has a continues response and a categorical explanatory variable. The scatter plot is more appropriate when both response and explanatory variable are continuous. You need to install and load "ggplot2" package to run the following code.
+
+1. Draw side-by-side boxplots of hours by temp
+```{r}
+library(ggplot2)
+ggplot(data = DAT) + geom_boxplot(aes(x = factor(temp), y = hours)) + 
+  xlab('Temp') + labs(title = 'Distribution of hours by Temp')
+
+
+```
+
+2. Draw scatter plot of hours by temp
+```{r}
+ggplot(data = DAT) + geom_point(aes(x = temp, y = hours))
+```

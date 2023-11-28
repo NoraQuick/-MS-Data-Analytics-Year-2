@@ -1,0 +1,120 @@
+---
+title: "ST525 Lab Activity 8"
+output: pdf_document
+urlcolor: cyan
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, 
+                      fig.align = "center", 
+                      fig.width = 6, fig.height = 4)
+```
+
+# Lab objectives
+
+After this lab you should be able to:
+\begin{itemize}
+\item Analyze survival data using Cox proportional hazard model in RStudio.
+\item Estimate survival function for individuals with given covariate values.
+\end{itemize}
+
+%# Build Cox proportional hazard model
+
+# Read data manually into R.
+
+We will use the same data set from last lab. Run the following code to read data into RStudio
+
+```{r}
+bmt <- data.frame(allo = c(rep(1, 16), rep(2, 27)),
+                  hodgkins = c(rep(1,11), rep(2,5), rep(1,12), rep(2,15)),
+                  time = c(28,32,49,84,357,933,1078,1183,1560,2114,2144,
+                           2,4,72,77,79,42,53,57,63,81,140,81,252,524,210,
+                           476,1037,30,36,41,52,62,108,132,180,307,406,
+                           446,484,748,1290,1345),
+                  status = c(1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,
+                             1,1,1,1,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0),
+                  kscore = c(90,30,40,60,70,90,100,90,80,80,90,20,50,80,
+                             60,70,80,90,30,60,50,100,50,90,90,90,90,90,
+                             90,80,70,60,90,70,60,100,100,100,100,90,
+                             90,90,80),
+                  wtime = c(24,7,8,10,42,9,16,16,20,27,5,34,28,59,102,71,
+                            19,17,9,13,12,11,12,21,39,16,24,84,73,61,34,
+                            18,40,65,17,61,24,48,52,84,171,20,98))
+```
+
+
+The data set contains 6 variables
+
+* __allo__: Graft type (1=allogenic, 2=autologous);
+* __hodgkins__: Disease type (1=Non-Hodgkin lymphoma, 2=Hodgkins disease);
+* __time__: Time to death or relapse, days;
+* __status__: Death/relapse indicator (0=alive, 1=dead);
+* __kscore__: Karnofsky score;
+* __wtime__: Waiting time to transplant in months.
+
+# Cox proportional hazard model
+
+The Cox proportional hazard model is implemented with  coxph() in R. 
+```{r}
+library(survival)
+###To be consistent with SAS output, we use allo=2 as the reference level for
+#allo, and hodgkins=2 as the reference level for hodgkins 
+bmt$allo<-factor(bmt$allo,level=c(2,1))
+bmt$hodgkins<-factor(bmt$hodgkins,level=c(2,1))
+censored <- Surv(bmt$time, bmt$status)
+fit1 <- coxph(formula = Surv(time, status) ~ allo + hodgkins +kscore + wtime, data = bmt)
+summary(fit1)
+
+```
+* __coxph__ is used to fit Cox proportional hazard model to survival times.
+* __formula__ statement specifies the following regression model
+\begin{center}
+$h(t)=h_0(t)exp(\beta_1allo+\beta_2hodgkins+\beta_3kscore+\beta_4wtime),$
+\end{center}
+where $h(t)$ is the hazard at time $t$ given a set of covariates, $h_0(t)$ represents the baseline hazard function when all covariates are at their baseline values (most of time the baseline value is 0).
+* Function __summary__ gives a complete summary of the  estimation results.
+
+In the R output,
+
+  +  coef ---- the estimated regression coefficients
+  + exp(coef) ---- the estimated hazard ratios. For each covariate, its hazard ratio compares the hazard rates when there is 1-unit increase for this covariate with all other covariates fixed. For example, the hazard ratio for the categorical covariate "allo" is
+\begin{center}
+$\frac{h(t)_{allo=1}}{h(t)_{allo=2}}=exp(\hat{\beta}_1)=exp(0.23)=1.26.$
+\end{center}
+That is, it is estimated that the risk of death is 1.26 times higher for patients with allogenic transplant, as compared to patients with autologous. Notice that 'allo' value 2 is treated as reference level. 
+For a continous covariate, Karnofsky score, note that
+$\frac{h(t)_{kscore=k+1}}{h(t)_{kscore=k}}=exp(\hat{\beta}_3)=exp(-0.056)=0.94.$
+That is, it is estimated that the risk of experiencing death decreases by 1-0.946=5.4% with 1-unit increase in the Karnofsky score.
+   + se(coef)-- the standard error of the estimated coefficient.
+   + z --- the z-value calculated as $\frac{coef}{se(coef)}$.
+   + Pr(>|z|) ---  the p-value for testing if coef=0.
+   +In the second table, it also output the 95% confidence intervals for the hazard ratios. lower .95 gives the lower bound, and upper .95 gives the upper bound for the 95% confidence interval.
+
+
+For continuous covariate we can estimate the  hazard ratio with customized size of increment. Specify the increment using "scale=" argument in the __summary()__ function. The default increment is 1-unit. In the following, we use 10-unit increment in kscore, while 1-unit increasement for all the other covariates.
+
+```{r}
+summary(fit1, scale = c(1,1,10,1))$conf
+```
+
+ The "scale=" option helps us compute the hazard ratio when there is 10-unit increase in the Karnofsky score. It is estimated that the risk of experiencing death decreases 1-0.572=42.8% with every 10-unit increase in the Karnofsky score.
+
+
+# Estimate survival function with a specific set of covariate values
+
+After we estimate the Cox proportional hazard model, we can predict the survival profile for a new patient with a specific set of covariae values. For example, if we have two new patients, one with allogenic transplant (allo=1), Non-Hodgkin lymphoma (hodgkins=1), Karnofsky score of 100 and 40 months of waiting time, and the other one with covariates autologous (allo=2), Non-Hodgkin lymphoma (hodgkins=1), Karnofsky score of 80 and 10 months of waiting time. How can we estimate the survival functions for these two patients? First we need to create a new data frame that contains covariate values for these two patients.
+
+```{r}
+group <- data.frame(allo = c(1,2),hodgkins = c(1,1),
+                    kscore = c(100,80),wtime = c(40,10),id=c(1,2))
+
+```
+
+The $id$  in this new data set "group" gives the id number for each group. This new data frame is passed to **survfit()** via the **newdata** argument. Now we can visualize survival functions of these two potential patient groups. Finally we use **ggsurvplot** to draw the survival functions.
+
+```{r}
+library(survminer)
+fit2 <- survfit(fit1, newdata = group)
+ggsurvplot(fit2, data = group, conf.int = FALSE)
+```
+The color in the plot indicates different groups. Based on the survival functions, the group 1 (in red) has better survival chance than the group 2 (in blue).
+
